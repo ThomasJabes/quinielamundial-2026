@@ -15,6 +15,8 @@ export default function Tabla() {
   const [pagados, setPagados] = useState(0);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [actualizando, setActualizando] = useState(false);
+  const [participantes, setParticipantes] = useState([]);
+  const [seccion, setSeccion] = useState("tabla");
 
   useEffect(() => {
     (async () => {
@@ -33,7 +35,7 @@ export default function Tabla() {
   const cargar = useCallback(async (mostrarSpinner = false) => {
     if (!faseId) return;
     if (mostrarSpinner) setActualizando(true);
-    const [{ data: t }, { count }, { data: admins }] = await Promise.all([
+    const [{ data: t }, { count: pagadosCount }, { data: admins }, { data: todosPerfiles }, { data: todosPagos }] = await Promise.all([
       supabase
         .from("tabla_posiciones")
         .select("*")
@@ -48,11 +50,36 @@ export default function Tabla() {
       supabase
         .from("profiles")
         .select("id")
-        .eq("es_admin", true)
+        .eq("es_admin", true),
+      supabase
+        .from("profiles")
+        .select("id, nombre, created_at, es_admin")
+        .order("nombre"),
+      supabase
+        .from("pagos")
+        .select("user_id, pagado")
+        .eq("fase_id", faseId)
     ]);
+
     const adminIds = new Set((admins || []).map((a) => a.id));
     setFilas((t || []).filter((f) => !adminIds.has(f.user_id)));
-    setPagados(count || 0);
+    setPagados(pagadosCount || 0);
+
+    // Mapear participantes y sus estados de pago
+    const jugadoresPerfiles = (todosPerfiles || []).filter((p) => !p.es_admin);
+    const pagosMapa = {};
+    (todosPagos || []).forEach((p) => {
+      pagosMapa[p.user_id] = p.pagado;
+    });
+
+    const listaParticipantes = jugadoresPerfiles.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      fecha: p.created_at,
+      pagado: Boolean(pagosMapa[p.id])
+    }));
+    setParticipantes(listaParticipantes);
+
     setUltimaActualizacion(new Date());
     if (mostrarSpinner) setActualizando(false);
   }, [faseId]);
@@ -141,73 +168,138 @@ export default function Tabla() {
           </div>
         </div>
 
-        {!filas.length ? (
-          <div className="tarjeta-partido text-center text-cal/60 py-10">
-            Aún no hay puntos en esta fase. La tabla aparece cuando finaliza el primer partido
-            (y solo cuenta a quienes ya pagaron su cuota).
-          </div>
-        ) : (
-          <div className="tarjeta-partido overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="font-marcador text-cal/50 text-xs uppercase border-b linea">
-                  <th className="text-left px-2 sm:px-4 py-3">#</th>
-                  <th className="text-left px-2 sm:px-4 py-3">Jugador</th>
-                  <th className="text-right px-2 sm:px-4 py-3" title="Puntos totales">Pts</th>
-                  <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de victoria (3 pts)">Ex. Vic</th>
-                  <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de empate (2 pts)">Ex. Emp</th>
-                  <th className="text-right px-2 sm:px-4 py-3" title="Aciertos simples (1 pt)">Ac. Sim</th>
-                  <th className="text-right px-2 sm:px-4 py-3 hidden sm:table-cell" title="Partidos jugados / pronosticados">Jugados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((f, i) => {
-                  // Calcular posición real manejando empates
-                  let posicion = i + 1;
-                  if (i > 0) {
-                    let j = i;
-                    while (j > 0 && filas[j].puntos === filas[j - 1].puntos && filas[j].exactos === filas[j - 1].exactos) {
-                      j--;
-                    }
-                    posicion = j + 1;
-                  }
+        {/* Pestañas de Navegación */}
+        <div className="flex border-b linea mb-6">
+          <button
+            className={`py-2 px-4 font-marcador text-sm font-bold border-b-2 transition-colors -mb-px ${
+              seccion === "tabla"
+                ? "border-oro text-oro"
+                : "border-transparent text-cal/60 hover:text-cal"
+            }`}
+            onClick={() => setSeccion("tabla")}
+          >
+            Clasificación
+          </button>
+          <button
+            className={`py-2 px-4 font-marcador text-sm font-bold border-b-2 transition-colors -mb-px ${
+              seccion === "participantes"
+                ? "border-oro text-oro"
+                : "border-transparent text-cal/60 hover:text-cal"
+            }`}
+            onClick={() => setSeccion("participantes")}
+          >
+            Participantes ({participantes.length})
+          </button>
+        </div>
 
-                  return (
-                    <tr
-                      key={f.user_id}
-                      className={`border-b linea last:border-0 transition-colors ${
-                        f.user_id === perfil.id ? "bg-canchaclaro/60" : ""
-                      }`}
-                    >
-                      <td className="px-2 sm:px-4 py-3 font-marcador">
-                        {posicion === 1 ? <span className="text-oro font-bold">1 ♛</span> : posicion}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 font-bold">
-                        {f.nombre}
-                        {f.user_id === perfil.id && (
-                          <span className="text-cal/40 font-normal"> (vos)</span>
-                        )}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 text-right font-marcador font-bold text-lg text-oro">
-                        {f.puntos}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 text-right font-marcador">
-                        {f.exactos_victoria ?? 0}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 text-right font-marcador">
-                        {f.exactos_empate ?? 0}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 text-right font-marcador">
-                        {f.aciertos_simples ?? 0}
-                      </td>
-                      <td className="px-2 sm:px-4 py-3 text-right font-marcador text-cal/50 hidden sm:table-cell">
-                        {f.pronosticados}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {seccion === "tabla" ? (
+          !filas.length ? (
+            <div className="tarjeta-partido text-center text-cal/60 py-10">
+              Aún no hay puntos en esta fase. La tabla aparece cuando finaliza el primer partido
+              (y solo cuenta a quienes ya pagaron su cuota).
+            </div>
+          ) : (
+            <div className="tarjeta-partido overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="font-marcador text-cal/50 text-xs uppercase border-b linea">
+                    <th className="text-left px-2 sm:px-4 py-3">#</th>
+                    <th className="text-left px-2 sm:px-4 py-3">Jugador</th>
+                    <th className="text-right px-2 sm:px-4 py-3" title="Puntos totales">Pts</th>
+                    <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de victoria (3 pts)">Ex. Vic</th>
+                    <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de empate (2 pts)">Ex. Emp</th>
+                    <th className="text-right px-2 sm:px-4 py-3" title="Aciertos simples (1 pt)">Ac. Sim</th>
+                    <th className="text-right px-2 sm:px-4 py-3 hidden sm:table-cell" title="Partidos jugados / pronosticados">Jugados</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((f, i) => {
+                    // Calcular posición real manejando empates
+                    let posicion = i + 1;
+                    if (i > 0) {
+                      let j = i;
+                      while (j > 0 && filas[j].puntos === filas[j - 1].puntos && filas[j].exactos === filas[j - 1].exactos) {
+                        j--;
+                      }
+                      posicion = j + 1;
+                    }
+
+                    return (
+                      <tr
+                        key={f.user_id}
+                        className={`border-b linea last:border-0 transition-colors ${
+                          f.user_id === perfil.id ? "bg-canchaclaro/60" : ""
+                        }`}
+                      >
+                        <td className="px-2 sm:px-4 py-3 font-marcador">
+                          {posicion === 1 ? <span className="text-oro font-bold">1 ♛</span> : posicion}
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 font-bold">
+                          {f.nombre}
+                          {f.user_id === perfil.id && (
+                            <span className="text-cal/40 font-normal"> (vos)</span>
+                          )}
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 text-right font-marcador font-bold text-lg text-oro">
+                          {f.puntos}
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 text-right font-marcador">
+                          {f.exactos_victoria ?? 0}
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 text-right font-marcador">
+                          {f.exactos_empate ?? 0}
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 text-right font-marcador">
+                          {f.aciertos_simples ?? 0}
+                        </td>
+                        <td className="px-2 sm:px-4 py-3 text-right font-marcador text-cal/50 hidden sm:table-cell">
+                          {f.pronosticados}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : (
+          <div className="tarjeta-partido p-0 overflow-hidden">
+            <div className="p-4 border-b linea flex items-center justify-between flex-wrap gap-2 bg-pizarra/35">
+              <h2 className="titulo text-lg text-cal">Jugadores Registrados</h2>
+              <span className="text-cal/60 text-xs font-marcador">
+                {participantes.filter(p => p.pagado).length} de {participantes.length} cuota(s) pagada(s)
+              </span>
+            </div>
+            <ul className="divide-y divide-cal/10">
+              {participantes.length === 0 ? (
+                <li className="p-8 text-center text-cal/60 text-sm">
+                  No hay jugadores registrados en esta fase.
+                </li>
+              ) : (
+                participantes.map((p, index) => (
+                  <li key={p.id} className="p-4 flex items-center justify-between hover:bg-canchaclaro/10 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-cal/40 font-marcador w-6">{index + 1}</span>
+                      <span className="font-bold text-cal">
+                        {p.nombre}
+                        {p.id === perfil.id && <span className="text-cal/40 font-normal"> (vos)</span>}
+                      </span>
+                    </div>
+                    <div>
+                      {p.pagado ? (
+                        <span className="chip chip-activo text-xs bg-canchaclaro/20 border border-canchaclaro/40 text-oro px-2 py-1 flex items-center gap-1">
+                          <span>✓</span> Pagado
+                        </span>
+                      ) : (
+                        <span className="chip text-xs bg-pizarra/20 border border-linea text-cal/40 px-2 py-1 flex items-center gap-1">
+                          <span>⏳</span> Pendiente
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
           </div>
         )}
       </main>
