@@ -128,7 +128,7 @@ export default function Tabla() {
           <div>
             <h1 className="titulo text-2xl text-cal">Tabla de posiciones</h1>
             <p className="text-cal/60 text-sm mt-1">
-              Puntos: <strong>Ex. Vic</strong> (3 pts) · <strong>Ex. Emp</strong> (2 pts) · <strong>Ac. Sim</strong> (1 pt). Desempate: más marcadores exactos.
+              Puntos: <strong>Victoria</strong> (3 pts) · <strong>Empate Exac</strong> (2 pts) · <strong>Acertado equipo</strong> (1 pt). Desempate: más marcadores exactos.
             </p>
           </div>
           <div className="text-right">
@@ -206,9 +206,9 @@ export default function Tabla() {
                     <th className="text-left px-2 sm:px-4 py-3">#</th>
                     <th className="text-left px-2 sm:px-4 py-3">Jugador</th>
                     <th className="text-right px-2 sm:px-4 py-3" title="Puntos totales">Pts</th>
-                    <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de victoria (3 pts)">Ex. Vic</th>
-                    <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de empate (2 pts)">Ex. Emp</th>
-                    <th className="text-right px-2 sm:px-4 py-3" title="Aciertos simples (1 pt)">Ac. Sim</th>
+                    <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de victoria (3 pts)">Victoria</th>
+                    <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de empate (2 pts)">Empate Exac</th>
+                    <th className="text-right px-2 sm:px-4 py-3" title="Aciertos de resultado simple (1 pt)">Acertado eq.</th>
                     <th className="text-right px-2 sm:px-4 py-3 hidden sm:table-cell" title="Partidos jugados / pronosticados">Jugados</th>
                   </tr>
                 </thead>
