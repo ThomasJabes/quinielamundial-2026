@@ -101,7 +101,7 @@ export default function Tabla() {
           <div>
             <h1 className="titulo text-2xl text-cal">Tabla de posiciones</h1>
             <p className="text-cal/60 text-sm mt-1">
-              Desempate: más marcadores exactos. El 1er lugar se lleva toda la bolsa.
+              Puntos: <strong>Ex. Vic</strong> (3 pts) · <strong>Ex. Emp</strong> (2 pts) · <strong>Ac. Sim</strong> (1 pt). Desempate: más marcadores exactos.
             </p>
           </div>
           <div className="text-right">
@@ -151,43 +151,61 @@ export default function Tabla() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="font-marcador text-cal/50 text-xs uppercase border-b linea">
-                  <th className="text-left px-4 py-3">#</th>
-                  <th className="text-left px-4 py-3">Jugador</th>
-                  <th className="text-right px-4 py-3">Pts</th>
-                  <th className="text-right px-4 py-3">Exactos</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Aciertos</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Jugados</th>
+                  <th className="text-left px-2 sm:px-4 py-3">#</th>
+                  <th className="text-left px-2 sm:px-4 py-3">Jugador</th>
+                  <th className="text-right px-2 sm:px-4 py-3" title="Puntos totales">Pts</th>
+                  <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de victoria (3 pts)">Ex. Vic</th>
+                  <th className="text-right px-2 sm:px-4 py-3 text-oro" title="Marcadores exactos de empate (2 pts)">Ex. Emp</th>
+                  <th className="text-right px-2 sm:px-4 py-3" title="Aciertos simples (1 pt)">Ac. Sim</th>
+                  <th className="text-right px-2 sm:px-4 py-3 hidden sm:table-cell" title="Partidos jugados / pronosticados">Jugados</th>
                 </tr>
               </thead>
               <tbody>
-                {filas.map((f, i) => (
-                  <tr
-                    key={f.user_id}
-                    className={`border-b linea last:border-0 transition-colors ${
-                      f.user_id === perfil.id ? "bg-canchaclaro/60" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-marcador">
-                      {i === 0 ? <span className="text-oro font-bold">1 ♛</span> : i + 1}
-                    </td>
-                    <td className="px-4 py-3 font-bold">
-                      {f.nombre}
-                      {f.user_id === perfil.id && (
-                        <span className="text-cal/40 font-normal"> (vos)</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-marcador font-bold text-lg">
-                      {f.puntos}
-                    </td>
-                    <td className="px-4 py-3 text-right font-marcador text-oro">{f.exactos}</td>
-                    <td className="px-4 py-3 text-right font-marcador hidden sm:table-cell">
-                      {f.aciertos}
-                    </td>
-                    <td className="px-4 py-3 text-right font-marcador text-cal/50 hidden sm:table-cell">
-                      {f.pronosticados}
-                    </td>
-                  </tr>
-                ))}
+                {filas.map((f, i) => {
+                  // Calcular posición real manejando empates
+                  let posicion = i + 1;
+                  if (i > 0) {
+                    let j = i;
+                    while (j > 0 && filas[j].puntos === filas[j - 1].puntos && filas[j].exactos === filas[j - 1].exactos) {
+                      j--;
+                    }
+                    posicion = j + 1;
+                  }
+
+                  return (
+                    <tr
+                      key={f.user_id}
+                      className={`border-b linea last:border-0 transition-colors ${
+                        f.user_id === perfil.id ? "bg-canchaclaro/60" : ""
+                      }`}
+                    >
+                      <td className="px-2 sm:px-4 py-3 font-marcador">
+                        {posicion === 1 ? <span className="text-oro font-bold">1 ♛</span> : posicion}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 font-bold">
+                        {f.nombre}
+                        {f.user_id === perfil.id && (
+                          <span className="text-cal/40 font-normal"> (vos)</span>
+                        )}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 text-right font-marcador font-bold text-lg text-oro">
+                        {f.puntos}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 text-right font-marcador">
+                        {f.exactos_victoria ?? 0}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 text-right font-marcador">
+                        {f.exactos_empate ?? 0}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 text-right font-marcador">
+                        {f.aciertos_simples ?? 0}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 text-right font-marcador text-cal/50 hidden sm:table-cell">
+                        {f.pronosticados}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -168,8 +168,7 @@ create policy "ver pronosticos" on public.pronosticos
 -- ---------- 5. TABLA DE POSICIONES (vista) ----------
 -- Solo suma puntos de partidos finalizados y de jugadores con la fase pagada.
 
-create or replace view public.tabla_posiciones
-with (security_invoker = true) as
+create or replace view public.tabla_posiciones as
 select
   f.id   as fase_id,
   f.nombre as fase,
@@ -182,9 +181,19 @@ select
       and pn.goles_visitante = pa.goles_visitante
   ) as exactos,
   count(*) filter (
+    where pn.goles_local = pa.goles_local
+      and pn.goles_visitante = pa.goles_visitante
+      and pa.goles_local != pa.goles_visitante
+  ) as exactos_victoria,
+  count(*) filter (
+    where pn.goles_local = pa.goles_local
+      and pn.goles_visitante = pa.goles_visitante
+      and pa.goles_local = pa.goles_visitante
+  ) as exactos_empate,
+  count(*) filter (
     where public.calcular_puntos(pn.goles_local, pn.goles_visitante,
-                                 pa.goles_local, pa.goles_visitante) > 0
-  ) as aciertos,
+                                 pa.goles_local, pa.goles_visitante) = 1
+  ) as aciertos_simples,
   count(*) as pronosticados
 from public.pronosticos pn
 join public.partidos pa on pa.id = pn.partido_id and pa.finalizado

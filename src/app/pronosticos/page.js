@@ -36,6 +36,7 @@ export default function Pronosticos() {
   const [aviso, setAviso] = useState(null);
   const [ajenos, setAjenos] = useState({});
   const [errorPerfil, setErrorPerfil] = useState(null);
+  const [savedIds, setSavedIds] = useState(new Set());
 
   // Sesión + datos base
   useEffect(() => {
@@ -73,6 +74,17 @@ export default function Pronosticos() {
       mapa[x.partido_id] = { goles_local: x.goles_local, goles_visitante: x.goles_visitante };
     });
     setPicks(mapa);
+
+    // Identificar los IDs de partidos que ya tienen pronósticos guardados
+    const partidosIds = new Set((pa || []).map((x) => x.id));
+    const guardados = new Set();
+    (pn || []).forEach((x) => {
+      if (partidosIds.has(x.partido_id)) {
+        guardados.add(x.partido_id);
+      }
+    });
+    setSavedIds(guardados);
+
     setPagado(Boolean(pg?.pagado));
     const jornadas = [...new Set((pa || []).map((x) => x.jornada))].sort((a, b) => a - b);
     const pendiente = (pa || []).find((x) => !x.finalizado);
@@ -92,30 +104,53 @@ export default function Pronosticos() {
   const fase = fases.find((f) => f.id === faseId);
 
   function setPick(id, campo, valor) {
+    if (savedIds.has(id)) return;
     const n = valor === "" ? "" : Math.max(0, Math.min(20, Number(valor)));
     setPicks((prev) => ({ ...prev, [id]: { ...prev[id], [campo]: n } }));
   }
 
   async function guardar() {
     setAviso(null);
-    const abiertos = visibles.filter((p) => new Date(p.fecha_hora) > new Date());
-    const filas = abiertos
-      .map((p) => ({ partido: p, pick: picks[p.id] }))
-      .filter(({ pick }) =>
-        pick && pick.goles_local !== "" && pick.goles_visitante !== "" &&
-        pick.goles_local != null && pick.goles_visitante != null
-      )
-      .map(({ partido, pick }) => ({
+    
+    // Todos los partidos abiertos de la fase completa
+    const abiertosFase = partidos.filter((p) => new Date(p.fecha_hora) > new Date());
+    
+    if (abiertosFase.length === 0) {
+      return setAviso({ tipo: "error", texto: "Todos los partidos de esta fase ya iniciaron o finalizaron." });
+    }
+
+    // Validar cuáles de los partidos abiertos no han sido pronosticados en el estado local picks
+    const incompletos = abiertosFase.filter((p) => {
+      const pick = picks[p.id];
+      return (
+        !pick ||
+        pick.goles_local === "" ||
+        pick.goles_visitante === "" ||
+        pick.goles_local == null ||
+        pick.goles_visitante == null
+      );
+    });
+
+    if (incompletos.length > 0) {
+      // Agrupar por jornada para informarle al usuario en qué jornadas le falta pronosticar
+      const jornadasFaltantes = [...new Set(incompletos.map((p) => p.jornada))].sort((a, b) => a - b);
+      return setAviso({
+        tipo: "error",
+        texto: `Debes completar todos los pronósticos de la fase para poder guardar. Revisa la(s) Jornada(s): ${jornadasFaltantes.join(", ")}.`
+      });
+    }
+
+    // Preparar filas para guardar (todos los partidos abiertos de la fase)
+    const filas = abiertosFase.map((p) => {
+      const pick = picks[p.id];
+      return {
         user_id: perfil.id,
-        partido_id: partido.id,
+        partido_id: p.id,
         goles_local: pick.goles_local,
         goles_visitante: pick.goles_visitante,
         actualizado: new Date().toISOString()
-      }));
-
-    if (!filas.length) {
-      return setAviso({ tipo: "error", texto: "No hay marcadores completos que guardar." });
-    }
+      };
+    });
 
     setGuardando(true);
     const { error } = await supabase
@@ -126,7 +161,8 @@ export default function Pronosticos() {
     if (error) {
       setAviso({ tipo: "error", texto: "No se pudo guardar. Verificá que los partidos no hayan iniciado." });
     } else {
-      setAviso({ tipo: "ok", texto: `Guardado: ${filas.length} pronóstico(s). ¡Suerte!` });
+      setAviso({ tipo: "ok", texto: "¡Todos los pronósticos de la fase han sido guardados y bloqueados correctamente!" });
+      await cargarFase();
     }
   }
 
@@ -246,23 +282,28 @@ export default function Pronosticos() {
                     <span className="flex items-center gap-2">
                       <input
                         type="number"
-                        className="marcador-input"
+                        className="marcador-input disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-pizarra/30 text-center"
                         min={0}
                         max={20}
                         value={pick.goles_local ?? ""}
                         onChange={(e) => setPick(p.id, "goles_local", e.target.value)}
+                        disabled={savedIds.has(p.id)}
                         aria-label={`Goles ${p.equipo_local}`}
                       />
                       <span className="font-marcador text-cal/40">:</span>
                       <input
                         type="number"
-                        className="marcador-input"
+                        className="marcador-input disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-pizarra/30 text-center"
                         min={0}
                         max={20}
                         value={pick.goles_visitante ?? ""}
                         onChange={(e) => setPick(p.id, "goles_visitante", e.target.value)}
+                        disabled={savedIds.has(p.id)}
                         aria-label={`Goles ${p.equipo_visitante}`}
                       />
+                      {savedIds.has(p.id) && (
+                        <span className="text-cal/40 text-xs ml-1 cursor-default select-none" title="Pronóstico guardado y bloqueado">🔒</span>
+                      )}
                     </span>
                   )}
                   <span className="flex-1 font-bold">{p.equipo_visitante}</span>
@@ -302,7 +343,7 @@ export default function Pronosticos() {
         </div>
 
         {/* Barra fija de guardado */}
-        {visibles.some((p) => new Date(p.fecha_hora) > new Date()) && (
+        {partidos.some((p) => new Date(p.fecha_hora) > new Date() && !savedIds.has(p.id)) && (
           <div className="fixed bottom-0 inset-x-0 bg-pizarra/95 border-t linea backdrop-blur">
             <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
               <button className="boton flex-1 sm:flex-none" onClick={guardar} disabled={guardando}>
