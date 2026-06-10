@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 // Convierte el nombre en un email interno único y reproducible.
-// Ej: "Juan López" → "juan.lopez@quiniela.local"
+// Ej: "Juan López" → "juan.lopez@quiniela2026.com"
 function nombreAEmail(nombre) {
   return (
     nombre
@@ -16,7 +16,7 @@ function nombreAEmail(nombre) {
       .replace(/[\u0300-\u036f]/g, "")   // quita tildes
       .replace(/\s+/g, ".")
       .replace(/[^a-z0-9.]/g, "")
-    + "@quiniela.local"
+    + "@quiniela2026.com"
   );
 }
 
