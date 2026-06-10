@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Los valores de fallback solo se usan en build time (generación estática).
-// En runtime siempre estarán disponibles las variables de entorno reales.
+// Fallback seguro para build time. En runtime Vercel inyecta las vars reales.
+// Usamos || (no ??) para cubrir strings vacíos además de null/undefined.
 export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder-key"
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key-for-build-only"
 );
