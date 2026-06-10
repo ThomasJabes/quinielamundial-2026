@@ -70,7 +70,7 @@ export default function Login() {
             </h1>
           </div>
           <p className="font-marcador text-cal/60 mt-3 text-sm">
-            La polla del grupo · que gane el mejor
+            Creado por Inge Thomas · World Cup
           </p>
         </div>
 
