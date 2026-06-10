@@ -13,6 +13,8 @@ export default function Tabla() {
   const [faseId, setFaseId] = useState(null);
   const [filas, setFilas] = useState([]);
   const [pagados, setPagados] = useState(0);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
+  const [actualizando, setActualizando] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -28,8 +30,9 @@ export default function Tabla() {
     })();
   }, [router]);
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (mostrarSpinner = false) => {
     if (!faseId) return;
+    if (mostrarSpinner) setActualizando(true);
     const [{ data: t }, { count }, { data: admins }] = await Promise.all([
       supabase
         .from("tabla_posiciones")
@@ -50,12 +53,41 @@ export default function Tabla() {
     const adminIds = new Set((admins || []).map((a) => a.id));
     setFilas((t || []).filter((f) => !adminIds.has(f.user_id)));
     setPagados(count || 0);
+    setUltimaActualizacion(new Date());
+    if (mostrarSpinner) setActualizando(false);
   }, [faseId]);
 
+  // Carga inicial
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Auto-refresh cada 30 segundos
+  useEffect(() => {
+    if (!faseId) return;
+    const intervalo = setInterval(() => cargar(), 30000);
+    return () => clearInterval(intervalo);
+  }, [faseId, cargar]);
+
+  // Realtime: actualiza al instante cuando admin cambia un partido
+  useEffect(() => {
+    if (!faseId) return;
+    const channel = supabase
+      .channel("partidos-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "partidos" },
+        () => { cargar(); }
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [faseId, cargar]);
 
   const fase = fases.find((f) => f.id === faseId);
   const bolsa = fase ? Number(fase.cuota) * pagados : 0;
+
+  function horaActualizacion(fecha) {
+    if (!fecha) return null;
+    return fecha.toLocaleTimeString("es-GT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
 
   if (!perfil) {
     return <main className="min-h-screen flex items-center justify-center font-marcador text-cal/60">Cargando…</main>;
@@ -79,16 +111,34 @@ export default function Tabla() {
           </div>
         </header>
 
-        <div className="flex flex-wrap gap-2 mb-5">
-          {fases.map((f) => (
+        {/* Selector de fase + botón refresh */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+          <div className="flex flex-wrap gap-2">
+            {fases.map((f) => (
+              <button
+                key={f.id}
+                className={`chip ${f.id === faseId ? "chip-activo" : ""}`}
+                onClick={() => setFaseId(f.id)}
+              >
+                {f.nombre}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {ultimaActualizacion && (
+              <span className="font-marcador text-xs text-cal/40">
+                ↻ {horaActualizacion(ultimaActualizacion)}
+              </span>
+            )}
             <button
-              key={f.id}
-              className={`chip ${f.id === faseId ? "chip-activo" : ""}`}
-              onClick={() => setFaseId(f.id)}
+              className="chip hover:chip-activo"
+              onClick={() => cargar(true)}
+              disabled={actualizando}
+              title="Actualizar tabla"
             >
-              {f.nombre}
+              {actualizando ? "…" : "⟳ Actualizar"}
             </button>
-          ))}
+          </div>
         </div>
 
         {!filas.length ? (
@@ -113,7 +163,7 @@ export default function Tabla() {
                 {filas.map((f, i) => (
                   <tr
                     key={f.user_id}
-                    className={`border-b linea last:border-0 ${
+                    className={`border-b linea last:border-0 transition-colors ${
                       f.user_id === perfil.id ? "bg-canchaclaro/60" : ""
                     }`}
                   >
