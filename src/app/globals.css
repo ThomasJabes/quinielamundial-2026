@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --linea-cal: rgba(243, 240, 230, 0.18);
+  --font-display: "Archivo Black", system-ui, sans-serif;
+  --font-body: "Archivo", system-ui, sans-serif;
+  --font-marcador: "Chivo Mono", ui-monospace, monospace;
+}
+
+body {
+  /* Césped con franjas de corte, como cancha vista desde la tribuna */
+  background-image: repeating-linear-gradient(
+    90deg,
+    #0a3d2a 0px,
+    #0a3d2a 120px,
+    #0c452f 120px,
+    #0c452f 240px
+  );
+}
+
+.linea {
+  border-color: var(--linea-cal);
+}
+
+.titulo {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.marcador-input {
+  @apply w-14 h-14 text-center text-2xl font-marcador font-bold bg-pizarra text-cal rounded-md border linea focus:outline-none focus:border-oro;
+  appearance: textfield;
+}
+.marcador-input::-webkit-outer-spin-button,
+.marcador-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.boton {
+  @apply font-display uppercase tracking-wide text-sm px-5 py-3 rounded-md bg-oro text-pizarra hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition;
+}
+.boton-secundario {
+  @apply font-display uppercase tracking-wide text-sm px-5 py-3 rounded-md border linea text-cal hover:bg-canchaclaro transition;
+}
+
+.tarjeta-partido {
+  @apply bg-pizarra/80 border linea rounded-lg p-4;
+}
+
+.chip {
+  @apply px-3 py-1.5 rounded-full border linea text-sm font-marcador cursor-pointer transition;
+}
+.chip-activo {
+  @apply bg-oro text-pizarra border-oro font-bold;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="datetime-local"],
+select {
+  @apply bg-pizarra border linea rounded-md px-3 py-2.5 text-cal w-full focus:outline-none focus:border-oro;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
