@@ -102,6 +102,17 @@ export default function Admin() {
     cargar();
   }
 
+  async function actualizarFechaLimite(faseId, fecha) {
+    const isoFecha = fecha ? new Date(fecha).toISOString() : null;
+    const { error } = await supabase
+      .from("fases")
+      .update({ fecha_limite: isoFecha })
+      .eq("id", faseId);
+    if (error) return avisar("error", "No se pudo guardar la fecha límite.");
+    avisar("ok", "Límite de tiempo de la fase actualizado.");
+    cargar();
+  }
+
   if (!perfil) {
     return <main className="min-h-screen flex items-center justify-center font-marcador text-cal/60">Cargando…</main>;
   }
@@ -238,6 +249,20 @@ export default function Admin() {
             </tbody>
           </table>
         </section>
+
+        {/* ---- Límites de Pronósticos ---- */}
+        <section className="tarjeta-partido">
+          <h2 className="titulo text-base text-oro mb-4">Límites de tiempo por fase</h2>
+          <p className="text-cal/60 text-xs mb-4">
+            Establece una fecha y hora límite global para cada fase. Al expirar,
+            los usuarios no podrán crear ni modificar pronósticos en esa fase, incluso si hay partidos que no hayan iniciado.
+          </p>
+          <div className="space-y-4">
+            {fases.map((f) => (
+              <FilaLimiteFase key={f.id} fase={f} onGuardar={actualizarFechaLimite} />
+            ))}
+          </div>
+        </section>
       </main>
     </>
   );
@@ -292,6 +317,60 @@ function FilaResultado({ partido: p, onGuardar, onReset }) {
             title="Borrar resultado y volver a pendiente"
           >
             Reset
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FilaLimiteFase({ fase: f, onGuardar }) {
+  // Convertir fecha de ISO a formato local de input (YYYY-MM-DDTHH:MM)
+  const formatISOToLocal = (isoStr) => {
+    if (!isoStr) return "";
+    const d = new Date(isoStr);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const [fecha, setFecha] = useState(formatISOToLocal(f.fecha_limite));
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b linea last:border-0 pb-3">
+      <div className="flex-1 min-w-[200px]">
+        <span className="font-bold text-sm text-cal">{f.nombre}</span>
+        {f.fecha_limite ? (
+          <span className="block text-xs text-oro">
+            Bloquea el: {new Date(f.fecha_limite).toLocaleString("es-GT")}
+          </span>
+        ) : (
+          <span className="block text-xs text-cal/40">Sin límite global (bloqueo por partido)</span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="datetime-local"
+          className="marcador-input !w-44 !h-9 text-xs px-2"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          aria-label={`Límite de tiempo para ${f.nombre}`}
+        />
+        <button
+          className="boton !py-2 !px-3 !text-xs"
+          onClick={() => onGuardar(f.id, fecha)}
+        >
+          Guardar
+        </button>
+        {f.fecha_limite && (
+          <button
+            className="boton-secundario !py-2 !px-3 !text-xs"
+            onClick={() => {
+              setFecha("");
+              onGuardar(f.id, "");
+            }}
+            title="Quitar límite"
+          >
+            Quitar
           </button>
         )}
       </div>

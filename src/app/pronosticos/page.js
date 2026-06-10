@@ -102,6 +102,7 @@ export default function Pronosticos() {
     [partidos, jornada]
   );
   const fase = fases.find((f) => f.id === faseId);
+  const faseExpirada = fase && fase.fecha_limite && new Date(fase.fecha_limite) <= new Date();
 
   function setPick(id, campo, valor) {
     if (savedIds.has(id)) return;
@@ -111,6 +112,9 @@ export default function Pronosticos() {
 
   async function guardar() {
     setAviso(null);
+    if (faseExpirada) {
+      return setAviso({ tipo: "error", texto: "El tiempo límite para pronosticar esta fase ha expirado." });
+    }
     
     // Todos los partidos abiertos de la fase completa
     const abiertosFase = partidos.filter((p) => new Date(p.fecha_hora) > new Date());
@@ -244,6 +248,15 @@ export default function Pronosticos() {
           </div>
         )}
 
+        {faseExpirada && (
+          <div className="mb-5 rounded-lg border border-tarjeta bg-tarjeta/10 p-3 text-sm text-tarjeta flex items-center gap-2">
+            <span>⚠️</span>
+            <span>
+              <strong>Límite de tiempo expirado:</strong> La fecha límite para guardar o modificar pronósticos en esta fase finalizó el {new Date(fase.fecha_limite).toLocaleString("es-GT")}.
+            </span>
+          </div>
+        )}
+
         {!visibles.length && (
           <div className="tarjeta-partido text-center text-cal/60 py-10">
             Todavía no hay partidos cargados en esta fase. El administrador los agregará pronto.
@@ -253,7 +266,7 @@ export default function Pronosticos() {
         <div className="space-y-3">
           {visibles.map((p) => {
             const inicio = new Date(p.fecha_hora);
-            const cerrado = inicio <= new Date();
+            const cerrado = faseExpirada || inicio <= new Date();
             const pick = picks[p.id] || {};
             const pts = p.finalizado && pick.goles_local != null
               ? puntosDe(pick.goles_local, pick.goles_visitante, p.goles_local, p.goles_visitante)
@@ -343,7 +356,7 @@ export default function Pronosticos() {
         </div>
 
         {/* Barra fija de guardado */}
-        {partidos.some((p) => new Date(p.fecha_hora) > new Date() && !savedIds.has(p.id)) && (
+        {!faseExpirada && partidos.some((p) => new Date(p.fecha_hora) > new Date() && !savedIds.has(p.id)) && (
           <div className="fixed bottom-0 inset-x-0 bg-pizarra/95 border-t linea backdrop-blur">
             <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
               <button className="boton flex-1 sm:flex-none" onClick={guardar} disabled={guardando}>

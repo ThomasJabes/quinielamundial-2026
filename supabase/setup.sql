@@ -16,7 +16,8 @@ create table public.fases (
   id serial primary key,
   nombre text not null,
   cuota numeric not null default 0,
-  orden int not null
+  orden int not null,
+  fecha_limite timestamptz -- límite para enviar/editar pronósticos de la fase
 );
 
 create table public.pagos (
@@ -141,7 +142,10 @@ create policy "crear pronostico antes del partido" on public.pronosticos
   with check (
     user_id = auth.uid()
     and exists (select 1 from public.partidos pa
-                where pa.id = partido_id and now() < pa.fecha_hora)
+                join public.fases f on f.id = pa.fase_id
+                where pa.id = partido_id 
+                  and now() < pa.fecha_hora
+                  and (f.fecha_limite is null or now() < f.fecha_limite))
   );
 
 create policy "editar pronostico antes del partido" on public.pronosticos
@@ -149,12 +153,18 @@ create policy "editar pronostico antes del partido" on public.pronosticos
   using (
     user_id = auth.uid()
     and exists (select 1 from public.partidos pa
-                where pa.id = partido_id and now() < pa.fecha_hora)
+                join public.fases f on f.id = pa.fase_id
+                where pa.id = partido_id 
+                  and now() < pa.fecha_hora
+                  and (f.fecha_limite is null or now() < f.fecha_limite))
   )
   with check (
     user_id = auth.uid()
     and exists (select 1 from public.partidos pa
-                where pa.id = partido_id and now() < pa.fecha_hora)
+                join public.fases f on f.id = pa.fase_id
+                where pa.id = partido_id 
+                  and now() < pa.fecha_hora
+                  and (f.fecha_limite is null or now() < f.fecha_limite))
   );
 
 create policy "ver pronosticos" on public.pronosticos
