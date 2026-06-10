@@ -30,7 +30,7 @@ export default function Tabla() {
 
   const cargar = useCallback(async () => {
     if (!faseId) return;
-    const [{ data: t }, { count }] = await Promise.all([
+    const [{ data: t }, { count }, { data: admins }] = await Promise.all([
       supabase
         .from("tabla_posiciones")
         .select("*")
@@ -41,9 +41,14 @@ export default function Tabla() {
         .from("pagos")
         .select("*", { count: "exact", head: true })
         .eq("fase_id", faseId)
-        .eq("pagado", true)
+        .eq("pagado", true),
+      supabase
+        .from("profiles")
+        .select("id")
+        .eq("es_admin", true)
     ]);
-    setFilas(t || []);
+    const adminIds = new Set((admins || []).map((a) => a.id));
+    setFilas((t || []).filter((f) => !adminIds.has(f.user_id)));
     setPagados(count || 0);
   }, [faseId]);
 

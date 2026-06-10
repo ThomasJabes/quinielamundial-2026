@@ -5,11 +5,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+// Convierte el nombre en un email interno único y reproducible.
+// Ej: "Juan López" → "juan.lopez@quiniela.local"
+function nombreAEmail(nombre) {
+  return (
+    nombre
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")   // quita tildes
+      .replace(/\s+/g, ".")
+      .replace(/[^a-z0-9.]/g, "")
+    + "@quiniela.local"
+  );
+}
+
 export default function Login() {
   const router = useRouter();
   const [modo, setModo] = useState("entrar"); // entrar | crear
   const [nombre, setNombre] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mensaje, setMensaje] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -18,6 +32,7 @@ export default function Login() {
     e.preventDefault();
     setMensaje(null);
     setCargando(true);
+    const email = nombreAEmail(nombre);
 
     if (modo === "crear") {
       const { data, error } = await supabase.auth.signUp({
@@ -26,16 +41,19 @@ export default function Login() {
         options: { data: { nombre: nombre.trim() } }
       });
       setCargando(false);
-      if (error) return setMensaje({ tipo: "error", texto: error.message });
+      if (error) {
+        const texto =
+          error.message.includes("already registered")
+            ? "Ese nombre ya está en uso. Elegí otro o entrá directamente."
+            : error.message;
+        return setMensaje({ tipo: "error", texto });
+      }
       if (data.session) return router.push("/pronosticos");
-      setMensaje({
-        tipo: "ok",
-        texto: "Cuenta creada. Revisá tu correo para confirmarla y luego entrá."
-      });
+      setMensaje({ tipo: "ok", texto: "¡Cuenta creada! Ya podés entrar." });
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setCargando(false);
-      if (error) return setMensaje({ tipo: "error", texto: "Correo o contraseña incorrectos." });
+      if (error) return setMensaje({ tipo: "error", texto: "Nombre o contraseña incorrectos." });
       router.push("/pronosticos");
     }
   }
@@ -43,7 +61,7 @@ export default function Login() {
   return (
     <main className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Círculo central de la cancha como marco del título */}
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-block border-2 linea rounded-full px-10 py-8">
             <h1 className="titulo text-3xl text-cal leading-tight">
@@ -57,43 +75,36 @@ export default function Login() {
         </div>
 
         <div className="tarjeta-partido">
+          {/* Tabs */}
           <div className="flex gap-2 mb-5">
             <button
               className={`chip flex-1 text-center ${modo === "entrar" ? "chip-activo" : ""}`}
-              onClick={() => setModo("entrar")}
+              onClick={() => { setModo("entrar"); setMensaje(null); }}
             >
               Entrar
             </button>
             <button
               className={`chip flex-1 text-center ${modo === "crear" ? "chip-activo" : ""}`}
-              onClick={() => setModo("crear")}
+              onClick={() => { setModo("crear"); setMensaje(null); }}
             >
               Crear cuenta
             </button>
           </div>
 
           <form onSubmit={enviar} className="space-y-4">
-            {modo === "crear" && (
-              <div>
-                <label className="block text-sm text-cal/70 mb-1">Tu nombre o apodo</label>
-                <input
-                  type="text"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  placeholder="Como te conoce el grupo"
-                  required
-                />
-              </div>
-            )}
             <div>
-              <label className="block text-sm text-cal/70 mb-1">Correo</label>
+              <label className="block text-sm text-cal/70 mb-1">
+                {modo === "crear" ? "Tu nombre o apodo" : "Tu nombre"}
+              </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder={modo === "crear" ? "Como te conoce el grupo" : "El nombre con que te registraste"}
                 required
               />
             </div>
+
             <div>
               <label className="block text-sm text-cal/70 mb-1">Contraseña</label>
               <input
@@ -103,20 +114,23 @@ export default function Login() {
                 minLength={6}
                 required
               />
+              {modo === "crear" && (
+                <p className="text-xs text-cal/40 mt-1">Mínimo 6 caracteres</p>
+              )}
             </div>
 
             {mensaje && (
-              <p
-                className={`text-sm ${
-                  mensaje.tipo === "error" ? "text-tarjeta" : "text-oro"
-                }`}
-              >
+              <p className={`text-sm ${mensaje.tipo === "error" ? "text-tarjeta" : "text-oro"}`}>
                 {mensaje.texto}
               </p>
             )}
 
             <button className="boton w-full" disabled={cargando}>
-              {cargando ? "Un momento…" : modo === "crear" ? "Crear mi cuenta" : "Entrar"}
+              {cargando
+                ? "Un momento…"
+                : modo === "crear"
+                ? "Crear mi cuenta"
+                : "Entrar"}
             </button>
           </form>
         </div>

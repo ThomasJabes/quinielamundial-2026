@@ -60,6 +60,17 @@ export default function Admin() {
     cargar();
   }
 
+  async function resetResultado(p) {
+    if (!confirm(`¿Resetear el resultado de ${p.equipo_local} vs ${p.equipo_visitante}? Se borrarán los goles y quedará como no finalizado.`)) return;
+    const { error } = await supabase
+      .from("partidos")
+      .update({ goles_local: null, goles_visitante: null, finalizado: false })
+      .eq("id", p.id);
+    if (error) return avisar("error", "No se pudo resetear el partido.");
+    avisar("ok", `Reseteado: ${p.equipo_local} vs ${p.equipo_visitante}`);
+    cargar();
+  }
+
   async function alternarPago(userId, faseId) {
     const actual = Boolean(pagos[`${userId}-${faseId}`]);
     const { error } = await supabase.from("pagos").upsert(
@@ -180,7 +191,7 @@ export default function Admin() {
           )}
           <div className="space-y-3">
             {partidos.map((p) => (
-              <FilaResultado key={p.id} partido={p} onGuardar={guardarResultado} />
+              <FilaResultado key={p.id} partido={p} onGuardar={guardarResultado} onReset={resetResultado} />
             ))}
           </div>
         </section>
@@ -232,7 +243,7 @@ export default function Admin() {
   );
 }
 
-function FilaResultado({ partido: p, onGuardar }) {
+function FilaResultado({ partido: p, onGuardar, onReset }) {
   const [gl, setGl] = useState(p.goles_local ?? "");
   const [gv, setGv] = useState(p.goles_visitante ?? "");
   const completo = gl !== "" && gv !== "";
@@ -266,13 +277,24 @@ function FilaResultado({ partido: p, onGuardar }) {
         onChange={(e) => setGv(e.target.value === "" ? "" : Number(e.target.value))}
         aria-label={`Goles ${p.equipo_visitante}`}
       />
-      <button
-        className="boton !py-2 !px-4 !text-xs"
-        disabled={!completo}
-        onClick={() => onGuardar(p, Number(gl), Number(gv), true)}
-      >
-        {p.finalizado ? "Actualizar" : "Finalizar"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          className="boton !py-2 !px-4 !text-xs"
+          disabled={!completo}
+          onClick={() => onGuardar(p, Number(gl), Number(gv), true)}
+        >
+          {p.finalizado ? "Actualizar" : "Finalizar"}
+        </button>
+        {p.finalizado && (
+          <button
+            className="boton-secundario !py-2 !px-4 !text-xs"
+            onClick={() => onReset(p)}
+            title="Borrar resultado y volver a pendiente"
+          >
+            Reset
+          </button>
+        )}
+      </div>
     </div>
   );
 }
