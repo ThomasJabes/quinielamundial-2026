@@ -30,11 +30,12 @@ export default function Pronosticos() {
   const [faseId, setFaseId] = useState(null);
   const [jornada, setJornada] = useState(null);
   const [partidos, setPartidos] = useState([]);
-  const [picks, setPicks] = useState({}); // partido_id -> {goles_local, goles_visitante}
+  const [picks, setPicks] = useState({});
   const [pagado, setPagado] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState(null);
-  const [ajenos, setAjenos] = useState({}); // partido_id -> lista de pronósticos del grupo
+  const [ajenos, setAjenos] = useState({});
+  const [errorPerfil, setErrorPerfil] = useState(null);
 
   // Sesión + datos base
   useEffect(() => {
@@ -42,10 +43,16 @@ export default function Pronosticos() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return router.replace("/login");
 
-      const [{ data: p }, { data: f }] = await Promise.all([
+      const [{ data: p, error: ep }, { data: f }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", session.user.id).single(),
         supabase.from("fases").select("*").order("orden")
       ]);
+
+      if (!p || ep) {
+        setErrorPerfil("No se encontró tu perfil. Cerrá sesión, volvé a entrar o contactá al administrador.");
+        return;
+      }
+
       setPerfil(p);
       setFases(f || []);
       if (f?.length) setFaseId(f[0].id);
@@ -133,6 +140,23 @@ export default function Pronosticos() {
       .select("goles_local, goles_visitante, profiles(nombre)")
       .eq("partido_id", partidoId);
     setAjenos((prev) => ({ ...prev, [partidoId]: data || [] }));
+  }
+
+  if (errorPerfil) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <div className="tarjeta-partido max-w-md text-center space-y-4">
+          <p className="text-tarjeta font-bold">⚠️ Error de perfil</p>
+          <p className="text-cal/70 text-sm">{errorPerfil}</p>
+          <button
+            className="boton-secundario"
+            onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (!perfil) {
