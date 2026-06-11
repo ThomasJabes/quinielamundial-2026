@@ -17,6 +17,7 @@ export default function Tabla() {
   const [actualizando, setActualizando] = useState(false);
   const [participantes, setParticipantes] = useState([]);
   const [seccion, setSeccion] = useState("tabla");
+  const [totalPartidos, setTotalPartidos] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -35,7 +36,7 @@ export default function Tabla() {
   const cargar = useCallback(async (mostrarSpinner = false) => {
     if (!faseId) return;
     if (mostrarSpinner) setActualizando(true);
-    const [{ data: t }, { count: pagadosCount }, { data: admins }, { data: todosPerfiles }, { data: todosPagos }] = await Promise.all([
+    const [{ data: t }, { count: pagadosCount }, { data: admins }, { data: todosPerfiles }, { data: todosPagos }, { data: partidosDeFase }] = await Promise.all([
       supabase
         .from("tabla_posiciones")
         .select("*")
@@ -58,12 +59,31 @@ export default function Tabla() {
       supabase
         .from("pagos")
         .select("user_id, pagado")
+        .eq("fase_id", faseId),
+      supabase
+        .from("partidos")
+        .select("id")
         .eq("fase_id", faseId)
     ]);
 
     const adminIds = new Set((admins || []).map((a) => a.id));
     setFilas((t || []).filter((f) => !adminIds.has(f.user_id)));
     setPagados(pagadosCount || 0);
+
+    const partidosIds = (partidosDeFase || []).map((p) => p.id);
+    const totalPartidosFase = partidosIds.length;
+    setTotalPartidos(totalPartidosFase);
+
+    const picksMapa = {};
+    if (partidosIds.length > 0) {
+      const { data: pronosticosDeFase } = await supabase
+        .from("pronosticos")
+        .select("user_id")
+        .in("partido_id", partidosIds);
+      (pronosticosDeFase || []).forEach((pr) => {
+        picksMapa[pr.user_id] = (picksMapa[pr.user_id] || 0) + 1;
+      });
+    }
 
     // Mapear participantes y sus estados de pago
     const jugadoresPerfiles = (todosPerfiles || []).filter((p) => !p.es_admin);
@@ -76,7 +96,8 @@ export default function Tabla() {
       id: p.id,
       nombre: p.nombre,
       fecha: p.created_at,
-      pagado: Boolean(pagosMapa[p.id])
+      pagado: Boolean(pagosMapa[p.id]),
+      completados: picksMapa[p.id] || 0
     }));
     setParticipantes(listaParticipantes);
 
@@ -285,7 +306,19 @@ export default function Tabla() {
                         {p.id === perfil.id && <span className="text-cal/40 font-normal"> (vos)</span>}
                       </span>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
+                      {totalPartidos > 0 && (
+                        p.completados === totalPartidos ? (
+                          <span className="chip text-xs bg-canchaclaro/40 border border-canchaclaro/80 text-oro px-2 py-1 flex items-center gap-1 font-bold" title="Pronósticos completos">
+                            <span>✓</span> {p.completados}/{totalPartidos}
+                          </span>
+                        ) : (
+                          <span className="chip text-xs bg-pizarra/20 border border-linea text-cal/50 px-2 py-1 flex items-center gap-1" title="Pronósticos incompletos">
+                            <span>✍️</span> {p.completados}/{totalPartidos}
+                          </span>
+                        )
+                      )}
+
                       {p.pagado ? (
                         <span className="chip chip-activo text-xs bg-canchaclaro/20 border border-canchaclaro/40 text-oro px-2 py-1 flex items-center gap-1">
                           <span>✓</span> Pagado
