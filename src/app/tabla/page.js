@@ -75,13 +75,11 @@ export default function Tabla() {
     setTotalPartidos(totalPartidosFase);
 
     const picksMapa = {};
-    if (partidosIds.length > 0) {
-      const { data: pronosticosDeFase } = await supabase
-        .from("pronosticos")
-        .select("user_id")
-        .in("partido_id", partidosIds);
-      (pronosticosDeFase || []).forEach((pr) => {
-        picksMapa[pr.user_id] = (picksMapa[pr.user_id] || 0) + 1;
+    if (totalPartidosFase > 0) {
+      const { data: conteos } = await supabase
+        .rpc("obtener_conteo_pronosticos", { fase_id_param: faseId });
+      (conteos || []).forEach((c) => {
+        picksMapa[c.user_id] = Number(c.completados);
       });
     }
 

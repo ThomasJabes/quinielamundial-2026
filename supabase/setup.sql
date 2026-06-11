@@ -97,7 +97,27 @@ as $$
     when sign(pl - pv) = sign(rl - rv) then 1
     else 0
   end
+-- Obtener conteo de pronósticos por usuario para una fase, evadiendo RLS de forma segura
+create or replace function public.obtener_conteo_pronosticos(fase_id_param int)
+returns table (
+  user_id uuid,
+  completados bigint
+)
+language plpgsql security definer set search_path = public
+as $$
+begin
+  return query
+  select 
+    pn.user_id,
+    count(*) as completados
+  from public.pronosticos pn
+  join public.partidos pa on pa.id = pn.partido_id
+  where pa.fase_id = fase_id_param
+  group by pn.user_id;
+end;
 $$;
+
+grant execute on function public.obtener_conteo_pronosticos(int) to authenticated;
 
 -- ---------- 4. SEGURIDAD (ROW LEVEL SECURITY) ----------
 
