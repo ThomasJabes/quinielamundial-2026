@@ -19,6 +19,7 @@ export default function Admin() {
   });
   const [usuarioIdReset, setUsuarioIdReset] = useState("");
   const [nuevaPasswordReset, setNuevaPasswordReset] = useState("");
+  const [mensajeReset, setMensajeReset] = useState(null);
 
   const cargar = useCallback(async () => {
     const [{ data: f }, { data: pa }, { data: ju }, { data: pg }] = await Promise.all([
@@ -118,9 +119,12 @@ export default function Admin() {
   async function cambiarPasswordUsuario(e) {
     e.preventDefault();
     if (!usuarioIdReset || nuevaPasswordReset.length < 6) return;
+    setMensajeReset(null);
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return avisar("error", "No hay sesión activa.");
+    if (!session) {
+      return setMensajeReset({ tipo: "error", texto: "No hay sesión activa." });
+    }
 
     try {
       const res = await fetch("/api/admin/reset-password", {
@@ -137,14 +141,15 @@ export default function Admin() {
 
       const data = await res.json();
       if (!res.ok) {
-        return avisar("error", data.error || "No se pudo cambiar la contraseña.");
+        return setMensajeReset({ tipo: "error", texto: data.error || "No se pudo cambiar la contraseña." });
       }
 
-      avisar("ok", "Contraseña restablecida con éxito.");
+      setMensajeReset({ tipo: "ok", texto: "Contraseña restablecida con éxito." });
       setUsuarioIdReset("");
       setNuevaPasswordReset("");
+      setTimeout(() => setMensajeReset(null), 4000);
     } catch (err) {
-      avisar("error", "Error de red al cambiar la contraseña.");
+      setMensajeReset({ tipo: "error", texto: "Error de red al cambiar la contraseña." });
     }
   }
 
@@ -322,6 +327,11 @@ export default function Admin() {
                 Actualizar Contraseña
               </button>
             </div>
+            {mensajeReset && (
+              <p className={`text-sm col-span-full ${mensajeReset.tipo === "error" ? "text-tarjeta" : "text-oro"}`}>
+                {mensajeReset.texto}
+              </p>
+            )}
           </form>
         </section>
 
