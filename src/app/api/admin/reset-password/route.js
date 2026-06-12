@@ -20,11 +20,18 @@ export async function POST(request) {
       return NextResponse.json({ error: "No autorizado. Token no proporcionado." }, { status: 401 });
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      return NextResponse.json(
+        { error: "Error de configuración: falta SUPABASE_SERVICE_ROLE_KEY en el servidor. Asegúrate de reiniciar el servidor Next.js si acabas de agregarla a .env.local." },
+        { status: 500 }
+      );
+    }
+
     // Inicializar Supabase usando la clave SERVICE_ROLE (solo servidor)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-    );
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Validar el token del administrador
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
