@@ -17,6 +17,8 @@ export default function Admin() {
   const [nuevo, setNuevo] = useState({
     fase_id: "", jornada: 1, grupo: "", equipo_local: "", equipo_visitante: "", fecha_hora: ""
   });
+  const [usuarioIdReset, setUsuarioIdReset] = useState("");
+  const [nuevaPasswordReset, setNuevaPasswordReset] = useState("");
 
   const cargar = useCallback(async () => {
     const [{ data: f }, { data: pa }, { data: ju }, { data: pg }] = await Promise.all([
@@ -111,6 +113,39 @@ export default function Admin() {
     if (error) return avisar("error", "No se pudo guardar la fecha límite.");
     avisar("ok", "Límite de tiempo de la fase actualizado.");
     cargar();
+  }
+
+  async function cambiarPasswordUsuario(e) {
+    e.preventDefault();
+    if (!usuarioIdReset || nuevaPasswordReset.length < 6) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return avisar("error", "No hay sesión activa.");
+
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: usuarioIdReset,
+          nuevaContrasena: nuevaPasswordReset
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return avisar("error", data.error || "No se pudo cambiar la contraseña.");
+      }
+
+      avisar("ok", "Contraseña restablecida con éxito.");
+      setUsuarioIdReset("");
+      setNuevaPasswordReset("");
+    } catch (err) {
+      avisar("error", "Error de red al cambiar la contraseña.");
+    }
   }
 
   if (!perfil) {
@@ -248,6 +283,46 @@ export default function Admin() {
               ))}
             </tbody>
           </table>
+        </section>
+
+        {/* ---- Restablecer Contraseña ---- */}
+        <section className="tarjeta-partido">
+          <h2 className="titulo text-base text-oro mb-4">Restablecer contraseña de jugador</h2>
+          <form onSubmit={cambiarPasswordUsuario} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm text-cal/70 mb-1">Seleccionar Jugador</label>
+              <select
+                value={usuarioIdReset}
+                onChange={(e) => setUsuarioIdReset(e.target.value)}
+                required
+              >
+                <option value="">-- Selecciona un jugador --</option>
+                {jugadores.map((j) => (
+                  <option key={j.id} value={j.id}>{j.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-cal/70 mb-1">Nueva Contraseña</label>
+              <input
+                type="password"
+                value={nuevaPasswordReset}
+                onChange={(e) => setNuevaPasswordReset(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                minLength={6}
+                required
+              />
+            </div>
+            <div className="flex items-end">
+              <button 
+                type="submit" 
+                className="boton w-full" 
+                disabled={!usuarioIdReset || nuevaPasswordReset.length < 6}
+              >
+                Actualizar Contraseña
+              </button>
+            </div>
+          </form>
         </section>
 
         {/* ---- Límites de Pronósticos ---- */}
