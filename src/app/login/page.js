@@ -104,7 +104,20 @@ export default function Login() {
     <main className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start justify-center py-8">
         
-        {/* Selector de Vista en Móvil (solo visible en pantallas pequeñas) */}
+        {/* Cabecera de Logo en Móvil (siempre arriba en celular) */}
+        <div className="w-full text-center lg:hidden mb-2">
+          <div className="inline-block border-2 linea rounded-full px-8 py-5 bg-pizarra/40">
+            <h1 className="titulo text-2xl text-cal leading-tight">
+              Quiniela
+              <span className="block text-oro">Mundial 2026</span>
+            </h1>
+          </div>
+          <p className="font-marcador text-cal/60 mt-2 text-xs">
+            Creado por Inge Thomas · World Cup
+          </p>
+        </div>
+
+        {/* Selector de Vista en Móvil (solo visible en pantallas pequeñas, colocado abajo del nombre) */}
         <div className="flex w-full gap-2 mb-2 lg:hidden bg-pizarra/40 p-1.5 rounded-lg border linea">
           <button
             className={`flex-1 py-2.5 text-center rounded-md font-display uppercase tracking-wider text-xs transition-all duration-200 ${
@@ -128,10 +141,10 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Columna Izquierda: Logo y Formulario de Login */}
+        {/* Columna Izquierda: Logo (escritorio) y Formulario de Login */}
         <div className={`${vistaMovil === "login" ? "flex" : "hidden"} lg:flex w-full lg:max-w-md flex-col justify-center`}>
-          {/* Logo */}
-          <div className="text-center mb-8">
+          {/* Logo (solo visible en pantallas grandes) */}
+          <div className="text-center mb-8 hidden lg:block">
             <div className="inline-block border-2 linea rounded-full px-10 py-8 bg-pizarra/40">
               <h1 className="titulo text-3xl text-cal leading-tight">
                 Quiniela
