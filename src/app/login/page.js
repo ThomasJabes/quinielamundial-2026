@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -27,6 +27,47 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [mensaje, setMensaje] = useState(null);
   const [cargando, setCargando] = useState(false);
+
+  // Estados para la tabla de posiciones pública
+  const [fases, setFases] = useState([]);
+  const [faseId, setFaseId] = useState(null);
+  const [filas, setFilas] = useState([]);
+  const [bolsa, setBolsa] = useState(0);
+  const [pagados, setPagados] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [actualizando, setActualizando] = useState(false);
+
+  const cargarTabla = useCallback(async (fId, mostrarSpinner = false) => {
+    if (mostrarSpinner) setActualizando(true);
+    else setLoading(true);
+
+    try {
+      const url = fId ? `/api/public-tabla?faseId=${fId}` : "/api/public-tabla";
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setFases(data.fases || []);
+        setFaseId(data.faseId || null);
+        setFilas(data.filas || []);
+        setBolsa(data.bolsa || 0);
+        setPagados(data.pagados || 0);
+      }
+    } catch (err) {
+      console.error("Error al cargar la tabla de posiciones:", err);
+    } finally {
+      setLoading(false);
+      setActualizando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarTabla();
+  }, [cargarTabla]);
+
+  const cambiarFase = (id) => {
+    setFaseId(id);
+    cargarTabla(id);
+  };
 
   async function enviar(e) {
     e.preventDefault();
@@ -60,80 +101,194 @@ export default function Login() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-block border-2 linea rounded-full px-10 py-8">
-            <h1 className="titulo text-3xl text-cal leading-tight">
-              Quiniela
-              <span className="block text-oro">Mundial 2026</span>
-            </h1>
-          </div>
-          <p className="font-marcador text-cal/60 mt-3 text-sm">
-            Creado por Inge Thomas · World Cup
-          </p>
-        </div>
-
-        <div className="tarjeta-partido">
-          {/* Tabs */}
-          <div className="flex gap-2 mb-5">
-            <button
-              className={`chip flex-1 text-center ${modo === "entrar" ? "chip-activo" : ""}`}
-              onClick={() => { setModo("entrar"); setMensaje(null); }}
-            >
-              Entrar
-            </button>
-            <button
-              className={`chip flex-1 text-center ${modo === "crear" ? "chip-activo" : ""}`}
-              onClick={() => { setModo("crear"); setMensaje(null); }}
-            >
-              Crear cuenta
-            </button>
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start justify-center py-8">
+        
+        {/* Columna Izquierda: Logo y Formulario de Login */}
+        <div className="w-full lg:max-w-md flex flex-col justify-center">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="inline-block border-2 linea rounded-full px-10 py-8 bg-pizarra/40">
+              <h1 className="titulo text-3xl text-cal leading-tight">
+                Quiniela
+                <span className="block text-oro">Mundial 2026</span>
+              </h1>
+            </div>
+            <p className="font-marcador text-cal/60 mt-3 text-sm">
+              Creado por Inge Thomas · World Cup
+            </p>
           </div>
 
-          <form onSubmit={enviar} className="space-y-4">
-            <div>
-              <label className="block text-sm text-cal/70 mb-1">
-                {modo === "crear" ? "Tu nombre o apodo" : "Tu nombre"}
-              </label>
-              <input
-                type="text"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder={modo === "crear" ? "Como te conoce el grupo" : "El nombre con que te registraste"}
-                required
-              />
+          <div className="tarjeta-partido">
+            {/* Tabs */}
+            <div className="flex gap-2 mb-5">
+              <button
+                className={`chip flex-1 text-center ${modo === "entrar" ? "chip-activo" : ""}`}
+                onClick={() => { setModo("entrar"); setMensaje(null); }}
+              >
+                Entrar
+              </button>
+              <button
+                className={`chip flex-1 text-center ${modo === "crear" ? "chip-activo" : ""}`}
+                onClick={() => { setModo("crear"); setMensaje(null); }}
+              >
+                Crear cuenta
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm text-cal/70 mb-1">Contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-              />
-              {modo === "crear" && (
-                <p className="text-xs text-cal/40 mt-1">Mínimo 6 caracteres</p>
+            <form onSubmit={enviar} className="space-y-4">
+              <div>
+                <label className="block text-sm text-cal/70 mb-1">
+                  {modo === "crear" ? "Tu nombre o apodo" : "Tu nombre"}
+                </label>
+                <input
+                  type="text"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder={modo === "crear" ? "Como te conoce el grupo" : "El nombre con que te registraste"}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-cal/70 mb-1">Contraseña</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={6}
+                  required
+                />
+                {modo === "crear" && (
+                  <p className="text-xs text-cal/40 mt-1">Mínimo 6 caracteres</p>
+                )}
+              </div>
+
+              {mensaje && (
+                <p className={`text-sm ${mensaje.tipo === "error" ? "text-tarjeta" : "text-oro"}`}>
+                  {mensaje.texto}
+                </p>
               )}
+
+              <button className="boton w-full" disabled={cargando}>
+                {cargando
+                  ? "Un momento…"
+                  : modo === "crear"
+                  ? "Crear mi cuenta"
+                  : "Entrar"}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Columna Derecha: Tabla de Posiciones Pública */}
+        <div className="w-full lg:flex-1">
+          <div className="tarjeta-partido">
+            <header className="mb-4 flex items-end justify-between gap-3 flex-wrap border-b linea pb-4">
+              <div>
+                <h2 className="titulo text-xl text-cal">Tabla de posiciones</h2>
+                <p className="text-cal/50 text-xs mt-1">
+                  Puntos: <strong>Vic</strong> (3 pts) · <strong>Emp</strong> (2 pts) · <strong>Acierto</strong> (1 pt)
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-marcador text-xs text-cal/50 uppercase">Bolsa</p>
+                <p className="font-display text-2xl text-oro">Q{bolsa}</p>
+                <p className="font-marcador text-[10px] text-cal/50">{pagados} cuota(s) pagada(s)</p>
+              </div>
+            </header>
+
+            {/* Selector de fase + botón refresh */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div className="flex flex-wrap gap-1.5">
+                {fases.map((f) => (
+                  <button
+                    key={f.id}
+                    className={`px-3 py-1 rounded-full border linea text-xs font-marcador cursor-pointer transition ${
+                      f.id === faseId ? "bg-oro text-pizarra border-oro font-bold" : "hover:bg-canchaclaro/30"
+                    }`}
+                    onClick={() => cambiarFase(f.id)}
+                  >
+                    {f.nombre}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="px-3 py-1 rounded-full border linea text-xs font-marcador cursor-pointer transition hover:bg-oro hover:text-pizarra"
+                onClick={() => cargarTabla(faseId, true)}
+                disabled={actualizando || loading}
+                title="Actualizar tabla"
+              >
+                {actualizando ? "…" : "⟳"}
+              </button>
             </div>
 
-            {mensaje && (
-              <p className={`text-sm ${mensaje.tipo === "error" ? "text-tarjeta" : "text-oro"}`}>
-                {mensaje.texto}
-              </p>
-            )}
+            {loading ? (
+              <div className="text-center text-cal/60 py-10 font-marcador text-sm">Cargando posiciones…</div>
+            ) : !filas.length ? (
+              <div className="text-center text-cal/60 py-10 text-sm">
+                Aún no hay puntos en esta fase. La tabla aparece cuando finaliza el primer partido (y solo cuenta a quienes ya pagaron).
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="font-marcador text-cal/50 text-[10px] uppercase border-b linea">
+                      <th className="text-left px-2 py-2">#</th>
+                      <th className="text-left px-2 py-2">Jugador</th>
+                      <th className="text-right px-2 py-2 text-oro" title="Puntos totales">Pts</th>
+                      <th className="text-right px-2 py-2 hidden sm:table-cell" title="Victoria exacta (3 pts)">Victoria</th>
+                      <th className="text-right px-2 py-2 hidden sm:table-cell" title="Empate exacto (2 pts)">Empate Exac</th>
+                      <th className="text-right px-2 py-2 hidden sm:table-cell" title="Acierto de resultado simple (1 pt)">Acertado eq.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filas.map((f, i) => {
+                      let posicion = i + 1;
+                      if (i > 0) {
+                        let j = i;
+                        while (
+                          j > 0 &&
+                          filas[j].puntos === filas[j - 1].puntos &&
+                          filas[j].exactos === filas[j - 1].exactos
+                        ) {
+                          j--;
+                        }
+                        posicion = j + 1;
+                      }
 
-            <button className="boton w-full" disabled={cargando}>
-              {cargando
-                ? "Un momento…"
-                : modo === "crear"
-                ? "Crear mi cuenta"
-                : "Entrar"}
-            </button>
-          </form>
+                      return (
+                        <tr
+                          key={f.user_id}
+                          className="border-b linea last:border-0 hover:bg-canchaclaro/10 transition-colors"
+                        >
+                          <td className="px-2 py-2 font-marcador">
+                            {posicion === 1 ? <span className="text-oro font-bold">1 ♛</span> : posicion}
+                          </td>
+                          <td className="px-2 py-2 font-bold max-w-[120px] truncate" title={f.nombre}>
+                            {f.nombre}
+                          </td>
+                          <td className="px-2 py-2 text-right font-marcador font-bold text-sm text-oro">
+                            {f.puntos}
+                          </td>
+                          <td className="px-2 py-2 text-right font-marcador text-cal/70 hidden sm:table-cell">
+                            {f.exactos_victoria ?? 0}
+                          </td>
+                          <td className="px-2 py-2 text-right font-marcador text-cal/70 hidden sm:table-cell">
+                            {f.exactos_empate ?? 0}
+                          </td>
+                          <td className="px-2 py-2 text-right font-marcador text-cal/70 hidden sm:table-cell">
+                            {f.aciertos_simples ?? 0}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
+
       </div>
     </main>
   );
