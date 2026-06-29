@@ -21,10 +21,11 @@ export async function GET(request) {
     // Inicializar Supabase usando la clave SERVICE_ROLE para evadir RLS de forma segura
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Obtener todas las fases
+    // Obtener todas las fases activas (excluyendo la Fase de grupos)
     const { data: fases, error: fasesError } = await supabaseAdmin
       .from("fases")
       .select("*")
+      .neq("id", 1)
       .order("orden");
 
     if (fasesError) {

@@ -28,7 +28,6 @@ export default function Pronosticos() {
   const [perfil, setPerfil] = useState(null);
   const [fases, setFases] = useState([]);
   const [faseId, setFaseId] = useState(null);
-  const [jornada, setJornada] = useState(null);
   const [partidos, setPartidos] = useState([]);
   const [picks, setPicks] = useState({});
   const [pagado, setPagado] = useState(true);
@@ -36,7 +35,6 @@ export default function Pronosticos() {
   const [aviso, setAviso] = useState(null);
   const [ajenos, setAjenos] = useState({});
   const [errorPerfil, setErrorPerfil] = useState(null);
-  const [savedIds, setSavedIds] = useState(new Set());
 
   // Sesión + datos base
   useEffect(() => {
@@ -46,7 +44,7 @@ export default function Pronosticos() {
 
       const [{ data: p, error: ep }, { data: f }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", session.user.id).single(),
-        supabase.from("fases").select("*").order("orden")
+        supabase.from("fases").select("*").neq("id", 1).order("orden")
       ]);
 
       if (!p || ep) {
@@ -75,46 +73,21 @@ export default function Pronosticos() {
     });
     setPicks(mapa);
 
-    // Identificar los IDs de partidos que ya tienen pronósticos guardados
-    const partidosIds = new Set((pa || []).map((x) => x.id));
-    const guardados = new Set();
-    (pn || []).forEach((x) => {
-      if (partidosIds.has(x.partido_id)) {
-        guardados.add(x.partido_id);
-      }
-    });
-    setSavedIds(guardados);
-
     setPagado(Boolean(pg?.pagado));
-    const jornadas = [...new Set((pa || []).map((x) => x.jornada))].sort((a, b) => a - b);
-    const pendiente = (pa || []).find((x) => !x.finalizado);
-    setJornada(pendiente ? pendiente.jornada : jornadas[0] ?? null);
   }, [faseId, perfil]);
 
   useEffect(() => { cargarFase(); }, [cargarFase]);
 
-  const jornadas = useMemo(
-    () => [...new Set(partidos.map((p) => p.jornada))].sort((a, b) => a - b),
-    [partidos]
-  );
-  const visibles = useMemo(
-    () => partidos.filter((p) => p.jornada === jornada),
-    [partidos, jornada]
-  );
+  const visibles = partidos;
   const fase = fases.find((f) => f.id === faseId);
-  const faseExpirada = fase && fase.fecha_limite && new Date(fase.fecha_limite) <= new Date();
 
   function setPick(id, campo, valor) {
-    if (savedIds.has(id)) return;
     const n = valor === "" ? "" : Math.max(0, Math.min(20, Number(valor)));
     setPicks((prev) => ({ ...prev, [id]: { ...prev[id], [campo]: n } }));
   }
 
   async function guardar() {
     setAviso(null);
-    if (faseExpirada) {
-      return setAviso({ tipo: "error", texto: "El tiempo límite para pronosticar esta fase ha expirado." });
-    }
     
     // Todos los partidos abiertos de la fase completa
     const abiertosFase = partidos.filter((p) => new Date(p.fecha_hora) > new Date());
@@ -136,11 +109,9 @@ export default function Pronosticos() {
     });
 
     if (incompletos.length > 0) {
-      // Agrupar por jornada para informarle al usuario en qué jornadas le falta pronosticar
-      const jornadasFaltantes = [...new Set(incompletos.map((p) => p.jornada))].sort((a, b) => a - b);
       return setAviso({
         tipo: "error",
-        texto: `Debes completar todos los pronósticos de la fase para poder guardar. Revisa la(s) Jornada(s): ${jornadasFaltantes.join(", ")}.`
+        texto: "Debes completar todos los pronósticos de la fase para poder guardar."
       });
     }
 
@@ -217,13 +188,12 @@ export default function Pronosticos() {
         {!pagado && fase && (
           <div className="mb-5 rounded-lg border border-oro/50 bg-oro/10 p-3 text-sm">
             <span className="font-bold text-oro">Cuota pendiente:</span>{" "}
-            esta fase cuesta Q{Number(fase.cuota)}. Podés pronosticar desde ya, pero tus puntos
-            no aparecerán en la tabla hasta que el administrador registre tu pago.
+            esta fase cuesta Q{Number(fase.cuota)}. Recordá realizar tu pago al administrador.
           </div>
         )}
 
-        {/* Selector de fase y jornada */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        {/* Selector de fase */}
+        <div className="flex flex-wrap gap-2 mb-5">
           {fases.map((f) => (
             <button
               key={f.id}
@@ -234,28 +204,6 @@ export default function Pronosticos() {
             </button>
           ))}
         </div>
-        {jornadas.length > 1 && (
-          <div className="flex flex-wrap gap-2 mb-5">
-            {jornadas.map((j) => (
-              <button
-                key={j}
-                className={`chip ${j === jornada ? "chip-activo" : ""}`}
-                onClick={() => setJornada(j)}
-              >
-                Jornada {j}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {faseExpirada && (
-          <div className="mb-5 rounded-lg border border-tarjeta bg-tarjeta/10 p-3 text-sm text-tarjeta flex items-center gap-2">
-            <span>⚠️</span>
-            <span>
-              <strong>Límite de tiempo expirado:</strong> La fecha límite para guardar o modificar pronósticos en esta fase finalizó el {new Date(fase.fecha_limite).toLocaleString("es-GT")}.
-            </span>
-          </div>
-        )}
 
         {!visibles.length && (
           <div className="tarjeta-partido text-center text-cal/60 py-10">
@@ -266,7 +214,7 @@ export default function Pronosticos() {
         <div className="space-y-3">
           {visibles.map((p) => {
             const inicio = new Date(p.fecha_hora);
-            const cerrado = faseExpirada || inicio <= new Date();
+            const cerrado = inicio <= new Date();
             const pick = picks[p.id] || {};
             const pts = p.finalizado && pick.goles_local != null
               ? puntosDe(pick.goles_local, pick.goles_visitante, p.goles_local, p.goles_visitante)
@@ -300,7 +248,6 @@ export default function Pronosticos() {
                         max={20}
                         value={pick.goles_local ?? ""}
                         onChange={(e) => setPick(p.id, "goles_local", e.target.value)}
-                        disabled={savedIds.has(p.id)}
                         aria-label={`Goles ${p.equipo_local}`}
                       />
                       <span className="font-marcador text-cal/40">:</span>
@@ -311,12 +258,8 @@ export default function Pronosticos() {
                         max={20}
                         value={pick.goles_visitante ?? ""}
                         onChange={(e) => setPick(p.id, "goles_visitante", e.target.value)}
-                        disabled={savedIds.has(p.id)}
                         aria-label={`Goles ${p.equipo_visitante}`}
                       />
-                      {savedIds.has(p.id) && (
-                        <span className="text-cal/40 text-xs ml-1 cursor-default select-none" title="Pronóstico guardado y bloqueado">🔒</span>
-                      )}
                     </span>
                   )}
                   <span className="flex-1 font-bold">{p.equipo_visitante}</span>
@@ -356,7 +299,7 @@ export default function Pronosticos() {
         </div>
 
         {/* Barra fija de guardado */}
-        {!faseExpirada && partidos.some((p) => new Date(p.fecha_hora) > new Date() && !savedIds.has(p.id)) && (
+        {partidos.some((p) => new Date(p.fecha_hora) > new Date()) && (
           <div className="fixed bottom-0 inset-x-0 bg-pizarra/95 border-t linea backdrop-blur">
             <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
               <button className="boton flex-1 sm:flex-none" onClick={guardar} disabled={guardando}>

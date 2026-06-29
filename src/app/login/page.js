@@ -228,10 +228,18 @@ export default function Login() {
                   Puntos: <strong>Vic</strong> (3 pts) · <strong>Emp</strong> (2 pts) · <strong>Acierto</strong> (1 pt)
                 </p>
               </div>
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end">
                 <p className="font-marcador text-xs text-cal/50 uppercase">Bolsa</p>
                 <p className="font-display text-2xl text-oro">Q{bolsa}</p>
-                <p className="font-marcador text-[10px] text-cal/50">{pagados} cuota(s) pagada(s)</p>
+                <p className="font-marcador text-[10px] text-cal/50 mb-1">{pagados} cuota(s) pagada(s)</p>
+                {bolsa > 0 && (
+                  <div className="text-right text-[10px] text-cal/70 bg-pizarra/30 border border-linea rounded px-2 py-1 space-y-0.5 font-marcador mt-1">
+                    <span className="block text-oro/90">🏆 Premios:</span>
+                    <span className="block">🥇 1°: Q{Math.round(bolsa * 0.5)}</span>
+                    <span className="block">🥈 2°: Q{Math.round(bolsa * 0.3333)}</span>
+                    <span className="block">🥉 3°: Q{bolsa - Math.round(bolsa * 0.5) - Math.round(bolsa * 0.3333)}</span>
+                  </div>
+                )}
               </div>
             </header>
 

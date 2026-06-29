@@ -25,7 +25,7 @@ export default function Tabla() {
       if (!session) return router.replace("/login");
       const [{ data: p }, { data: f }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", session.user.id).single(),
-        supabase.from("fases").select("*").order("orden")
+        supabase.from("fases").select("*").neq("id", 1).order("orden")
       ]);
       setPerfil(p);
       setFases(f || []);
@@ -83,8 +83,9 @@ export default function Tabla() {
       });
     }
 
-    // Mapear participantes y sus estados de pago
-    const jugadoresPerfiles = (todosPerfiles || []).filter((p) => !p.es_admin);
+    // Mapear participantes y sus estados de pago (solo los que participan en la fase actual, es decir, tienen registro en pagos)
+    const participantesIds = new Set((todosPagos || []).map((p) => p.user_id));
+    const jugadoresPerfiles = (todosPerfiles || []).filter((p) => !p.es_admin && participantesIds.has(p.id));
     const pagosMapa = {};
     (todosPagos || []).forEach((p) => {
       pagosMapa[p.user_id] = p.pagado;
@@ -150,10 +151,18 @@ export default function Tabla() {
               Puntos: <strong>Victoria</strong> (3 pts) · <strong>Empate Exac</strong> (2 pts) · <strong>Acertado equipo</strong> (1 pt). Desempate: más marcadores exactos.
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-right flex flex-col items-end">
             <p className="font-marcador text-xs text-cal/50 uppercase">Bolsa de la fase</p>
             <p className="font-display text-3xl text-oro">Q{bolsa}</p>
-            <p className="font-marcador text-xs text-cal/50">{pagados} cuota(s) pagada(s)</p>
+            <p className="font-marcador text-xs text-cal/50 mb-1">{pagados} cuota(s) pagada(s)</p>
+            {bolsa > 0 && (
+              <div className="text-right text-[11px] text-cal/70 bg-pizarra/30 border border-linea rounded px-2 py-1 space-y-0.5 font-marcador mt-1">
+                <span className="block text-oro/90">🏆 Premios:</span>
+                <span className="block">🥇 1°: Q{Math.round(bolsa * 0.5)}</span>
+                <span className="block">🥈 2°: Q{Math.round(bolsa * 0.3333)}</span>
+                <span className="block">🥉 3°: Q{bolsa - Math.round(bolsa * 0.5) - Math.round(bolsa * 0.3333)}</span>
+              </div>
+            )}
           </div>
         </header>
 

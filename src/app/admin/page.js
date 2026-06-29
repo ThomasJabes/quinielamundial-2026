@@ -23,7 +23,7 @@ export default function Admin() {
 
   const cargar = useCallback(async () => {
     const [{ data: f }, { data: pa }, { data: ju }, { data: pg }] = await Promise.all([
-      supabase.from("fases").select("*").order("orden"),
+      supabase.from("fases").select("*").neq("id", 1).order("orden"),
       supabase.from("partidos").select("*").order("fecha_hora"),
       supabase.from("profiles").select("*").order("nombre"),
       supabase.from("pagos").select("*")
@@ -74,19 +74,51 @@ export default function Admin() {
     cargar();
   }
 
+  async function alternarParticipacion(userId, faseId) {
+    const key = `${userId}-${faseId}`;
+    const participa = pagos[key] !== undefined;
+
+    if (participa) {
+      const { error } = await supabase
+        .from("pagos")
+        .delete()
+        .eq("user_id", userId)
+        .eq("fase_id", faseId);
+      if (error) return avisar("error", "No se pudo eliminar la participación.");
+      setPagos((prev) => {
+        const copia = { ...prev };
+        delete copia[key];
+        return copia;
+      });
+      avisar("ok", "Participación eliminada.");
+    } else {
+      const { error } = await supabase.from("pagos").insert({
+        user_id: userId,
+        fase_id: faseId,
+        pagado: false
+      });
+      if (error) return avisar("error", "No se pudo registrar la participación.");
+      setPagos((prev) => ({ ...prev, [key]: false }));
+      avisar("ok", "Participación registrada.");
+    }
+  }
+
   async function alternarPago(userId, faseId) {
-    const actual = Boolean(pagos[`${userId}-${faseId}`]);
+    const key = `${userId}-${faseId}`;
+    const pagado = Boolean(pagos[key]);
+
     const { error } = await supabase.from("pagos").upsert(
       {
         user_id: userId,
         fase_id: faseId,
-        pagado: !actual,
-        fecha_pago: !actual ? new Date().toISOString() : null
+        pagado: !pagado,
+        fecha_pago: !pagado ? new Date().toISOString() : null
       },
       { onConflict: "user_id,fase_id" }
     );
     if (error) return avisar("error", "No se pudo actualizar el pago.");
-    setPagos((prev) => ({ ...prev, [`${userId}-${faseId}`]: !actual }));
+    setPagos((prev) => ({ ...prev, [key]: !pagado }));
+    avisar("ok", !pagado ? "Pago registrado." : "Pago marcado como pendiente.");
   }
 
   async function agregarPartido(e) {
@@ -268,19 +300,33 @@ export default function Admin() {
                     {j.nombre}{j.es_admin && <span className="text-cal/40 font-normal"> · admin</span>}
                   </td>
                   {fases.map((f) => {
-                    const ok = Boolean(pagos[`${j.id}-${f.id}`]);
+                    const key = `${j.id}-${f.id}`;
+                    const participa = pagos[key] !== undefined;
+                    const pagado = Boolean(pagos[key]);
                     return (
                       <td key={f.id} className="text-center py-2 px-2">
-                        <button
-                          onClick={() => alternarPago(j.id, f.id)}
-                          className={`px-3 py-1 rounded-full font-marcador text-xs border transition ${
-                            ok
-                              ? "bg-oro text-pizarra border-oro font-bold"
-                              : "border-cal/30 text-cal/50 hover:border-oro"
-                          }`}
-                        >
-                          {ok ? "Pagado" : "Pendiente"}
-                        </button>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => alternarParticipacion(j.id, f.id)}
+                            className={`px-2 py-1 rounded font-marcador text-[10px] border transition ${
+                              participa
+                                ? "bg-cal/20 text-cal border-cal/50 font-bold"
+                                : "border-cal/20 text-cal/30 hover:border-cal/50"
+                            }`}
+                          >
+                            {participa ? "✓ Juega" : "No juega"}
+                          </button>
+                          <button
+                            onClick={() => alternarPago(j.id, f.id)}
+                            className={`px-2 py-1 rounded font-marcador text-[10px] border transition ${
+                              pagado
+                                ? "bg-oro text-pizarra border-oro font-bold"
+                                : "border-cal/30 text-cal/50 hover:border-oro"
+                            }`}
+                          >
+                            {pagado ? "Pagado" : "Pendiente"}
+                          </button>
+                        </div>
                       </td>
                     );
                   })}
