@@ -96,27 +96,27 @@ export default function Pronosticos() {
       return setAviso({ tipo: "error", texto: "Todos los partidos de esta fase ya iniciaron o finalizaron." });
     }
 
-    // Validar cuáles de los partidos abiertos no han sido pronosticados en el estado local picks
-    const incompletos = abiertosFase.filter((p) => {
+    // Filtrar los pronósticos que tengan marcadores completos (no vacíos)
+    const completados = abiertosFase.filter((p) => {
       const pick = picks[p.id];
       return (
-        !pick ||
-        pick.goles_local === "" ||
-        pick.goles_visitante === "" ||
-        pick.goles_local == null ||
-        pick.goles_visitante == null
+        pick &&
+        pick.goles_local !== "" &&
+        pick.goles_visitante !== "" &&
+        pick.goles_local != null &&
+        pick.goles_visitante != null
       );
     });
 
-    if (incompletos.length > 0) {
+    if (completados.length === 0) {
       return setAviso({
         tipo: "error",
-        texto: "Debes completar todos los pronósticos de la fase para poder guardar."
+        texto: "Ingresa al menos un pronóstico válido (marcador completo) antes de guardar."
       });
     }
 
-    // Preparar filas para guardar (todos los partidos abiertos de la fase)
-    const filas = abiertosFase.map((p) => {
+    // Preparar filas para guardar (solo de los pronósticos completados y abiertos)
+    const filas = completados.map((p) => {
       const pick = picks[p.id];
       return {
         user_id: perfil.id,
@@ -136,7 +136,7 @@ export default function Pronosticos() {
     if (error) {
       setAviso({ tipo: "error", texto: "No se pudo guardar. Verificá que los partidos no hayan iniciado." });
     } else {
-      setAviso({ tipo: "ok", texto: "¡Todos los pronósticos de la fase han sido guardados y bloqueados correctamente!" });
+      setAviso({ tipo: "ok", texto: "¡Tus pronósticos ingresados han sido guardados correctamente!" });
       await cargarFase();
     }
   }
